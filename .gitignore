@@ -1,0 +1,33 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+
+# Logs
+*.log
+
+# Root-level optional docs (excluded from GitHub)
+docs/
+
+# Backend
+backend/target/
+backend/.mvn/
+backend/node_modules/
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/src/main/resources/application-local.properties
+
+# Migrations (excluded from GitHub by request)
+backend/src/main/resources/db/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/.cache/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
