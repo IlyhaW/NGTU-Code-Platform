@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { CurrentUserDto } from '../../api.types';
 
 @Component({
   selector: 'app-student-layout',
@@ -28,6 +29,7 @@ import { AuthService } from '../../services/auth.service';
 
           <div class="student-shell__menu" *ngIf="userMenuOpen">
             <div class="student-shell__menu-name">{{ userDisplayName }}</div>
+            <div class="student-shell__menu-group" *ngIf="userGroupLabel">{{ userGroupLabel }}</div>
             <div class="student-shell__menu-role">{{ userRoleLabel }}</div>
             <button type="button" class="student-shell__menu-item" (click)="logout()">Выйти</button>
           </div>
@@ -156,6 +158,13 @@ import { AuthService } from '../../services/auth.service';
         margin-bottom: 2px;
       }
 
+      .student-shell__menu-group {
+        font-size: 13px;
+        font-weight: 500;
+        color: #334155;
+        margin-bottom: 2px;
+      }
+
       .student-shell__menu-role {
         font-size: 13px;
         color: #475569;
@@ -222,6 +231,8 @@ export class StudentLayoutComponent implements OnInit {
 
   userMenuOpen = false;
   userDisplayName = 'Студент';
+  /** Подпись группы под ФИО, например «Группа: ИВТ-21». */
+  userGroupLabel = '';
   userRoleLabel = 'Студент';
 
   /**
@@ -242,13 +253,35 @@ export class StudentLayoutComponent implements OnInit {
    * Загружает профиль текущего пользователя.
    */
   ngOnInit(): void {
+    this.refreshUserProfile();
+  }
+
+  /**
+   * Загружает /me и обновляет подписи в шапке (ФИО, группа, роль).
+   */
+  private refreshUserProfile(): void {
     this.auth.getMe().subscribe({
-      next: (user) => {
-        this.userDisplayName = user.fullName?.trim() || 'Студент';
-        this.userRoleLabel = user.role === 'teacher' ? 'Преподаватель' : 'Студент';
-      },
+      next: (user) => this.applyUserProfile(user),
       error: () => {},
     });
+  }
+
+  /**
+   * Заполняет поля меню из ответа GET /me.
+   */
+  private applyUserProfile(user: CurrentUserDto): void {
+    this.userDisplayName = user.fullName?.trim() || 'Студент';
+    this.userRoleLabel = user.role === 'teacher' ? 'Преподаватель' : 'Студент';
+    const isStudent = (user.role || '').toLowerCase() === 'student';
+    const g =
+      user.groupName != null && String(user.groupName).trim() !== ''
+        ? String(user.groupName).trim()
+        : '';
+    if (isStudent) {
+      this.userGroupLabel = g ? `Группа: ${g}` : 'Группа не назначена';
+    } else {
+      this.userGroupLabel = g ? `Группа: ${g}` : '';
+    }
   }
 
   /**
@@ -256,6 +289,9 @@ export class StudentLayoutComponent implements OnInit {
    */
   toggleUserMenu(): void {
     this.userMenuOpen = !this.userMenuOpen;
+    if (this.userMenuOpen) {
+      this.refreshUserProfile();
+    }
   }
 
   /**

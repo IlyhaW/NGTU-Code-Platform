@@ -65,6 +65,8 @@ export interface CurrentUserDto {
   id?: number;
   fullName: string;
   role: string;
+  /** Название учебной группы, если пользователь к ней привязан. */
+  groupName?: string | null;
 }
 
 /**

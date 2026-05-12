@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 /**
@@ -86,7 +87,8 @@ public class AuthService {
         if (login == null || login.isBlank() || password == null || password.isBlank()) {
             throw new IllegalArgumentException("login and password are required");
         }
-        User user = userRepository.findByLogin(login)
+        User user = userRepository
+                .findByLoginWithGroup(login.trim())
                 .orElseThrow(() -> new IllegalArgumentException("user not found"));
 
         String storedHash = new String(user.getPasswordHash(), StandardCharsets.UTF_8);
@@ -124,12 +126,42 @@ public class AuthService {
         } else {
             String login = claims.getSubject();
             if (login != null && !login.isBlank()) {
-                userRepository.findByLogin(login).ifPresent(u -> dto.setId(u.getId()));
+                userRepository.findByLoginWithGroup(login.trim()).ifPresent(u -> dto.setId(u.getId()));
             }
         }
         dto.setFullName(claims.get("fullName", String.class));
         dto.setRole(claims.get("role", String.class));
+        enrichCurrentUserGroup(dto, claims);
         return dto;
+    }
+
+    /** Подставляет название группы из БД; если в профиле группы нет — из claim groupName в JWT (после входа). */
+    private void enrichCurrentUserGroup(CurrentUserDto dto, Claims claims) {
+        Optional<User> withGroup = Optional.empty();
+        if (dto.getId() != null) {
+            withGroup = userRepository.findByIdWithGroup(dto.getId());
+        }
+        if (withGroup.isEmpty()) {
+            String login = claims.getSubject();
+            if (login != null && !login.isBlank()) {
+                withGroup = userRepository.findByLoginWithGroup(login.trim());
+            }
+        }
+        if (withGroup.isPresent()) {
+            User u = withGroup.get();
+            if (u.getGroup() != null
+                    && u.getGroup().getName() != null
+                    && !u.getGroup().getName().isBlank()) {
+                dto.setGroupName(u.getGroup().getName().trim());
+                return;
+            }
+        }
+        String fromJwt = claims.get("groupName", String.class);
+        if (fromJwt != null && !fromJwt.isBlank()) {
+            dto.setGroupName(fromJwt.trim());
+        } else {
+            dto.setGroupName(null);
+        }
     }
 
     /**

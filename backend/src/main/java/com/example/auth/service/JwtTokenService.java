@@ -37,15 +37,19 @@ public class JwtTokenService {
     public String createToken(User user) {
         Date now = new Date();
         Date exp = new Date(now.getTime() + jwtExpirationMs);
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .setSubject(user.getLogin())
                 .claim("userId", user.getId())
                 .claim("fullName", user.getFullName())
                 .claim("role", user.getRole())
                 .setIssuedAt(now)
-                .setExpiration(exp)
-                .signWith(jwtKey, SignatureAlgorithm.HS256)
-                .compact();
+                .setExpiration(exp);
+        if (user.getGroup() != null
+                && user.getGroup().getName() != null
+                && !user.getGroup().getName().isBlank()) {
+            builder.claim("groupName", user.getGroup().getName().trim());
+        }
+        return builder.signWith(jwtKey, SignatureAlgorithm.HS256).compact();
     }
 
     /**

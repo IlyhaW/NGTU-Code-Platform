@@ -19,6 +19,18 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByLogin(String login);
 
     /**
+     * Находит пользователя по логину с подгрузкой группы (для /me).
+     */
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.group WHERE u.login = :login")
+    Optional<User> findByLoginWithGroup(@Param("login") String login);
+
+    /**
+     * Находит пользователя по id с подгрузкой группы (для /me).
+     */
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.group WHERE u.id = :id")
+    Optional<User> findByIdWithGroup(@Param("id") Long id);
+
+    /**
      * Проверяет уникальность логина.
      */
     boolean existsByLogin(String login);

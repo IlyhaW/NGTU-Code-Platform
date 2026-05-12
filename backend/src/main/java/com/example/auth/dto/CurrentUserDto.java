@@ -7,6 +7,8 @@ public class CurrentUserDto {
     private Long id;
     private String fullName;
     private String role;
+    /** Название учебной группы (если пользователь привязан к группе). */
+    private String groupName;
 
     public Long getId() {
         return id;
@@ -30,5 +32,13 @@ public class CurrentUserDto {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getGroupName() {
+        return groupName;
+    }
+
+    public void setGroupName(String groupName) {
+        this.groupName = groupName;
     }
 }
