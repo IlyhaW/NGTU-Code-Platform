@@ -11,6 +11,9 @@ Thumbs.db
 # Root-level optional docs (excluded from GitHub)
 docs/
 
+# Secrets (root Compose `.env` — never commit)
+.env
+
 # Backend
 backend/target/
 backend/.mvn/

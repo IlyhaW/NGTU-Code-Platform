@@ -402,7 +402,7 @@ public class AssignmentService {
         return true;
     }
 
-    /** Генерирует несколько вариантов задачи с примерами и тест-кейсами. */
+    /** Генерирует несколько вариантов задачи с открытыми и закрытыми тест-кейсами (без примеров в тексте условия). */
     @Transactional
     public List<VariantDetailDto> generateVariants(Long assignmentId, Long taskId, Long teacherId,
                                                    GenerateVariantsRequest request) {
@@ -444,29 +444,16 @@ public class AssignmentService {
             AssignmentVariant v = new AssignmentVariant();
             v.setTaskId(task.getId());
             v.setVariantName("Вариант " + (nonOriginalBefore + j));
-            v.setContent(contentForPersistence(withExamples(draft.content(), draft.examples())));
+            v.setContent(contentForPersistence(draft.content()));
             v = assignmentVariantRepository.save(v);
             int added = 0;
-            for (GeminiVariantGenerator.GeneratedCase tc : draft.tests()) {
-                if (tc == null) {
-                    continue;
-                }
-                String input = tc.input() != null ? tc.input() : "";
-                String expected = tc.output() != null ? tc.output() : "";
-                if (input.isBlank() && expected.isBlank()) {
-                    continue;
-                }
-                TaskTestCase row = new TaskTestCase();
-                row.setTaskId(task.getId());
-                row.setVariantId(v.getId());
-                row.setInputData(input);
-                row.setExpectedOutput(expected);
-                row.setTimeLimitMs(timeLimitMs);
-                row.setMemoryLimitKb(memoryLimitKb);
-                row.setActive(true);
-                row.setPublic(false);
-                taskTestCaseRepository.save(row);
-                added++;
+            for (GeminiVariantGenerator.GeneratedCase tc : draft.publicTests()) {
+                added += saveGeneratedTestCase(
+                        task.getId(), v.getId(), tc, true, timeLimitMs, memoryLimitKb);
+            }
+            for (GeminiVariantGenerator.GeneratedCase tc : draft.privateTests()) {
+                added += saveGeneratedTestCase(
+                        task.getId(), v.getId(), tc, false, timeLimitMs, memoryLimitKb);
             }
             if (added == 0) {
                 TaskTestCase fallback = new TaskTestCase();
@@ -486,25 +473,33 @@ public class AssignmentService {
         return created;
     }
 
-    /** Добавляет в текст варианта блок примеров из генератора. */
-    private static String withExamples(String content, List<GeminiVariantGenerator.GeneratedCase> examples) {
-        String base = content == null ? "" : content.trim();
-        if (examples == null || examples.isEmpty()) {
-            return base;
+    /** Сохраняет один сгенерированный тест-кейс; возвращает 1 если строка создана, иначе 0. */
+    private int saveGeneratedTestCase(
+            Long taskId,
+            Long variantId,
+            GeminiVariantGenerator.GeneratedCase tc,
+            boolean isPublic,
+            int timeLimitMs,
+            int memoryLimitKb) {
+        if (tc == null) {
+            return 0;
         }
-        StringBuilder sb = new StringBuilder(base);
-        sb.append("\n\nПримеры\n");
-        int idx = 1;
-        for (GeminiVariantGenerator.GeneratedCase ex : examples) {
-            if (ex == null) continue;
-            String in = ex.input() != null ? ex.input().trim() : "";
-            String out = ex.output() != null ? ex.output().trim() : "";
-            if (in.isBlank() && out.isBlank()) continue;
-            sb.append("\nПример ").append(idx++).append(":\n");
-            sb.append("Вход:\n").append(in.isBlank() ? "(пусто)" : in).append("\n");
-            sb.append("Выход:\n").append(out.isBlank() ? "(пусто)" : out).append("\n");
+        String input = tc.input() != null ? tc.input() : "";
+        String expected = tc.output() != null ? tc.output() : "";
+        if (input.isBlank() && expected.isBlank()) {
+            return 0;
         }
-        return sb.toString().trim();
+        TaskTestCase row = new TaskTestCase();
+        row.setTaskId(taskId);
+        row.setVariantId(variantId);
+        row.setInputData(input);
+        row.setExpectedOutput(expected);
+        row.setTimeLimitMs(timeLimitMs);
+        row.setMemoryLimitKb(memoryLimitKb);
+        row.setActive(true);
+        row.setPublic(isPublic);
+        taskTestCaseRepository.save(row);
+        return 1;
     }
 
     /** Обновляет название и теги темы преподавателя. */

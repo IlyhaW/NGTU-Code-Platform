@@ -21,6 +21,9 @@ import java.util.List;
 public class GeminiVariantGenerator {
     private static final ObjectMapper JSON = new ObjectMapper().findAndRegisterModules();
     private static final String OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+    /** Сколько открытых и сколько закрытых тест-кейсов нужно на каждый вариант. */
+    public static final int EXPECTED_PUBLIC_TESTS = 5;
+    public static final int EXPECTED_PRIVATE_TESTS = 5;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final String apiKey;
     private final String configuredModel;
@@ -48,9 +51,10 @@ public class GeminiVariantGenerator {
     public record GeneratedCase(String input, String output) {}
 
     /**
-     * Сгенерированный вариант условия с примерами и тестами.
+     * Сгенерированный вариант: только текст условия и тест-кейсы (открытые и закрытые).
      */
-    public record GeneratedVariant(String content, List<GeneratedCase> examples, List<GeneratedCase> tests) {}
+    public record GeneratedVariant(
+            String content, List<GeneratedCase> publicTests, List<GeneratedCase> privateTests) {}
 
     /** Возвращает только тексты вариантов без тест-кейсов и примеров. */
     public List<String> generate(
@@ -68,7 +72,7 @@ public class GeminiVariantGenerator {
         return out;
     }
 
-    /** Генерирует подробные варианты с примерами и тест-кейсами. */
+    /** Генерирует подробные варианты с открытыми и закрытыми тест-кейсами. */
     public List<GeneratedVariant> generateDetailed(
             String assignmentName,
             String taskTitle,
@@ -114,7 +118,7 @@ public class GeminiVariantGenerator {
         return """
                 Ты помогаешь преподавателю составлять варианты задач по программированию.
                 Верни результат строго в JSON без markdown и пояснений:
-                {"variants":[{"name":"Вариант 1","content":"...","examples":[{"input":"...","output":"..."}],"tests":[{"input":"...","output":"..."}]}]}
+                {"variants":[{"name":"Вариант 1","content":"...","public_tests":[{"input":"...","output":"..."}],"private_tests":[{"input":"...","output":"..."}]}]}
 
                 Требования:
                 - Количество вариантов: %d
@@ -127,14 +131,22 @@ public class GeminiVariantGenerator {
                 %s
                 ---
 
-                Каждый вариант должен быть самодостаточным текстом условия (что дано, что требуется, ограничения/вход/выход при необходимости).
+                Каждый вариант должен быть самодостаточным текстом условия (что дано, что требуется, формат входа/выхода при необходимости).
                 Варианты должны отличаться друг от друга данными/нюансами, но оставаться в той же теме и примерно той же длины.
                 Для каждого варианта:
-                - поле content: только полный текст условия (без markdown);
-                - поле examples: 1-2 примера входа/выхода;
-                - поле tests: 3-6 тестов входа/выхода для автоматической проверки.
-                examples/tests возвращай в plain text, без markdown.
-                """.formatted(count, difficulty, normalizedStyle, safe(assignmentName), safe(taskTitle), safe(sourceText));
+                - поле content: только полный текст условия (без markdown). Не включай в content примеры ввода-вывода, числовые демонстрации, секции «Пример», «Вход», «Выход» — любые демонстрационные пары вход/выход только в public_tests и private_tests.
+                - поле public_tests: ровно %d объектов — открытые тест-кейсы (их может видеть студент при проверке).
+                - поле private_tests: ровно %d объектов — закрытые тест-кейсы (скрыты от студента).
+                public_tests и private_tests: пары input/output в plain text, без markdown.
+                """.formatted(
+                count,
+                difficulty,
+                normalizedStyle,
+                safe(assignmentName),
+                safe(taskTitle),
+                safe(sourceText),
+                EXPECTED_PUBLIC_TESTS,
+                EXPECTED_PRIVATE_TESTS);
     }
 
     /** Возвращает безопасную строку вместо null. */
@@ -152,7 +164,9 @@ public class GeminiVariantGenerator {
             com.fasterxml.jackson.databind.node.ArrayNode messages = JSON.createArrayNode();
             com.fasterxml.jackson.databind.node.ObjectNode system = JSON.createObjectNode();
             system.put("role", "system");
-            system.put("content", "Отвечай строго JSON-объектом формата {\"variants\":[{\"name\":\"Вариант 1\",\"content\":\"...\"}]}.");
+            system.put(
+                    "content",
+                    "Отвечай строго JSON-объектом формата {\"variants\":[{\"name\":\"...\",\"content\":\"...\",\"public_tests\":[{\"input\":\"...\",\"output\":\"...\"}],\"private_tests\":[{\"input\":\"...\",\"output\":\"...\"}]}]} — без примеров внутри content.");
             messages.add(system);
             com.fasterxml.jackson.databind.node.ObjectNode user = JSON.createObjectNode();
             user.put("role", "user");
@@ -188,12 +202,18 @@ public class GeminiVariantGenerator {
             if (content.isBlank()) {
                 continue;
             }
-            List<GeneratedCase> examples = parseCases(it.path("examples"), 2);
-            List<GeneratedCase> tests = parseCases(it.path("tests"), 8);
-            if (tests.isEmpty()) {
-                tests = examples;
+            List<GeneratedCase> publicTests = parseCases(it.path("public_tests"), EXPECTED_PUBLIC_TESTS);
+            List<GeneratedCase> privateTests = parseCases(it.path("private_tests"), EXPECTED_PRIVATE_TESTS);
+            if (publicTests.size() < EXPECTED_PUBLIC_TESTS || privateTests.size() < EXPECTED_PRIVATE_TESTS) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Модель вернула недостаточно тест-кейсов: нужно %d открытых и %d закрытых, получено %d и %d.",
+                                EXPECTED_PUBLIC_TESTS,
+                                EXPECTED_PRIVATE_TESTS,
+                                publicTests.size(),
+                                privateTests.size()));
             }
-            out.add(new GeneratedVariant(content, examples, tests));
+            out.add(new GeneratedVariant(content, publicTests, privateTests));
             if (out.size() >= count) {
                 break;
             }

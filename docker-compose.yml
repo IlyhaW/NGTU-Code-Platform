@@ -29,7 +29,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgres
       JWT_SECRET_BASE64: ${JWT_SECRET_BASE64:?JWT_SECRET_BASE64 is required}
-      OPENROUTER_API_KEY: ""
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
     ports:
       - "8080:8080"
 
