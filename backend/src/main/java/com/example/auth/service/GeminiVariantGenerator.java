@@ -121,6 +121,7 @@ public class GeminiVariantGenerator {
                 {"variants":[{"name":"Вариант 1","content":"...","public_tests":[{"input":"...","output":"..."}],"private_tests":[{"input":"...","output":"..."}]}]}
 
                 Требования:
+                - Язык: весь ответ только на русском. Поля name, content, а также все input и output в public_tests и private_tests — на русском (кроме имён переменных/функций в коде, если он есть внутри теста; пояснения к заданию — на русском).
                 - Количество вариантов: %d
                 - Сложность: %d из 5
                 - Стиль формулировки: %s
@@ -166,7 +167,7 @@ public class GeminiVariantGenerator {
             system.put("role", "system");
             system.put(
                     "content",
-                    "Отвечай строго JSON-объектом формата {\"variants\":[{\"name\":\"...\",\"content\":\"...\",\"public_tests\":[{\"input\":\"...\",\"output\":\"...\"}],\"private_tests\":[{\"input\":\"...\",\"output\":\"...\"}]}]} — без примеров внутри content.");
+                    "Отвечай строго JSON-объектом формата {\"variants\":[{\"name\":\"...\",\"content\":\"...\",\"public_tests\":[{\"input\":\"...\",\"output\":\"...\"}],\"private_tests\":[{\"input\":\"...\",\"output\":\"...\"}]}]} — только русский язык во всех текстовых полях (условие и тесты), без примеров внутри content.");
             messages.add(system);
             com.fasterxml.jackson.databind.node.ObjectNode user = JSON.createObjectNode();
             user.put("role", "user");
