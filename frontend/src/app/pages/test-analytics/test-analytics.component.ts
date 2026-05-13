@@ -3,7 +3,18 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../services/auth.service';
-import { TestAnalyticsDto } from '../../api.types';
+import {
+  TestAnalyticsDto,
+  TestAnalyticsQuestionColumnRow,
+  TestAnalyticsStudentCellRow,
+  TestAnalyticsStudentRow,
+} from '../../api.types';
+
+interface SelectedAnalyticsCell {
+  student: TestAnalyticsStudentRow;
+  question: TestAnalyticsQuestionColumnRow;
+  cell: TestAnalyticsStudentCellRow;
+}
 
 @Component({
   selector: 'app-test-analytics',
@@ -19,61 +30,121 @@ import { TestAnalyticsDto } from '../../api.types';
             <span class="ta-header__badge">{{ statusRu(data.status) }}</span>
           </div>
         </div>
-        <div class="ta-header__actions" *ngIf="testId != null">
-          <a routerLink="/teacher" class="ta-header__home ta-header__home--solo" aria-label="На главную">⌂</a>
-        </div>
+        <a routerLink="/teacher" class="ta-header__home ta-header__home--solo" aria-label="На главную">⌂</a>
       </header>
 
       <div class="ta-msg ta-msg--err" *ngIf="error">{{ error }}</div>
       <div class="ta-loading" *ngIf="loading">Загрузка…</div>
 
       <main class="ta-main" *ngIf="data && !loading">
-        <section class="ta-two-col">
-          <article class="ta-panel ta-panel--tasks">
-            <h2 class="ta-panel__h">Задания теста</h2>
-            <div class="ta-task-list" *ngIf="data.questions.length; else noQuestions">
-              <div class="ta-task-row" *ngFor="let q of data.questions">
-                <div class="ta-task-row__head">
-                  <span class="ta-task-row__idx">№{{ q.sortOrder + 1 }}</span>
-                  <span class="ta-task-row__title">{{ q.taskName }}</span>
-                </div>
-                <div class="ta-task-row__stats">
-                  <span class="ta-chip ta-chip--pass">Сдано: {{ q.passedCount }}</span>
-                  <span class="ta-chip ta-chip--fail">Не сдано: {{ q.failedCount }}</span>
-                  <span class="ta-chip ta-chip--skip">Пропуски: {{ q.skippedCount }}</span>
-                </div>
-                <div class="ta-task-row__actions" *ngIf="testId != null">
-                  <a
-                    class="ta-link ta-link--inline"
-                    [routerLink]="['/teacher/tests', testId, 'submissions']"
-                    [queryParams]="{ testQuestionId: q.testQuestionId }"
-                  >
-                    Ответы студентов
-                  </a>
-                </div>
-              </div>
+        <section class="ta-panel">
+          <div class="ta-panel__head">
+            <div>
+              <h2 class="ta-panel__h">Сводная таблица выполнения</h2>
+              <p class="ta-panel__lead">
+                Строки — студенты, столбцы — задания. Плюс ставится, если решение зачтено,
+                отправлено в срок и не превышен лимит попыток.
+              </p>
             </div>
-            <ng-template #noQuestions>
-              <div class="ta-empty">В этом тесте пока нет заданий.</div>
-            </ng-template>
-          </article>
+            <div class="ta-legend" aria-label="Обозначения">
+              <span class="ta-legend__item"><span class="ta-mark ta-mark--pass">+</span> зачтено</span>
+              <span class="ta-legend__item"><span class="ta-mark ta-mark--fail">−</span> не зачтено</span>
+            </div>
+          </div>
 
-          <article class="ta-panel ta-panel--graph">
-            <h2 class="ta-panel__h">График выполнения</h2>
-            <p class="ta-panel__lead">Процент сданных решений по каждому заданию.</p>
-            <div class="ta-bars" *ngIf="data.questions.length">
-              <div class="ta-bar-row" *ngFor="let q of data.questions">
-                <div class="ta-bar-row__label">№{{ q.sortOrder + 1 }}</div>
-                <div class="ta-bar-row__track">
-                  <div class="ta-bar-row__fill" [style.width.%]="pct(q.passedCount, data.totalStudentsInGroups)"></div>
-                </div>
-                <div class="ta-bar-row__val">{{ pct(q.passedCount, data.totalStudentsInGroups).toFixed(0) }}%</div>
-              </div>
-            </div>
-            <div class="ta-empty" *ngIf="!data.questions.length">Нет данных для графика.</div>
-          </article>
+          <div class="ta-empty" *ngIf="data.questionColumns.length === 0">
+            В этом тесте пока нет заданий.
+          </div>
+          <div class="ta-empty" *ngIf="data.questionColumns.length > 0 && data.studentRows.length === 0">
+            В назначенных группах пока нет студентов.
+          </div>
+
+          <div class="ta-table-wrap" *ngIf="data.questionColumns.length > 0 && data.studentRows.length > 0">
+            <table class="ta-table">
+              <thead>
+                <tr>
+                  <th class="ta-table__student">Студент</th>
+                  <th
+                    *ngFor="let q of data.questionColumns"
+                    class="ta-table__task"
+                    [title]="q.assignmentName + ' — ' + q.taskName"
+                  >
+                    <span class="ta-table__task-num">№{{ q.sortOrder + 1 }}</span>
+                    <span class="ta-table__task-name">{{ q.taskName }}</span>
+                  </th>
+                  <th class="ta-table__score">Оценка</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of data.studentRows">
+                  <th class="ta-table__student ta-table__student--body">
+                    <span class="ta-student-name">{{ row.fullName }}</span>
+                    <span class="ta-student-group" *ngIf="row.groupName">{{ row.groupName }}</span>
+                  </th>
+                  <td *ngFor="let q of data.questionColumns; let i = index" class="ta-table__cell">
+                    <button
+                      *ngIf="row.cells[i] as cell"
+                      type="button"
+                      class="ta-cell-btn"
+                      [class.ta-cell-btn--pass]="cell.passed"
+                      [class.ta-cell-btn--fail]="!cell.passed"
+                      (click)="selectCell(row, q, cell)"
+                      [attr.aria-label]="cellLabel(row, q, cell)"
+                    >
+                      {{ cell.passed ? '+' : '−' }}
+                    </button>
+                  </td>
+                  <td class="ta-table__score ta-table__score--body">{{ row.score }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </main>
+
+      <div class="ta-modal-backdrop" *ngIf="selected" (click)="closeDetails()"></div>
+      <aside class="ta-details" *ngIf="selected" role="dialog" aria-modal="true">
+        <button type="button" class="ta-details__close" (click)="closeDetails()" aria-label="Закрыть">×</button>
+        <h2 class="ta-details__title">{{ selected.student.fullName }}</h2>
+        <p class="ta-details__subtitle">
+          Задание №{{ selected.question.sortOrder + 1 }}:
+          {{ selected.question.taskName }}
+        </p>
+
+        <div class="ta-details__grid">
+          <div>
+            <span class="ta-details__label">Результат</span>
+            <strong [class.ta-details__ok]="selected.cell.passed" [class.ta-details__bad]="!selected.cell.passed">
+              {{ selected.cell.passed ? 'зачтено' : 'не зачтено' }}
+            </strong>
+          </div>
+          <div>
+            <span class="ta-details__label">Статус</span>
+            <strong>{{ selected.cell.statusLabel || statusRu(selected.cell.solutionStatus) }}</strong>
+          </div>
+          <div>
+            <span class="ta-details__label">Попытки</span>
+            <strong>{{ selected.cell.attemptsUsed }} / {{ selected.cell.maxAttempts || '∞' }}</strong>
+          </div>
+          <div>
+            <span class="ta-details__label">В срок</span>
+            <strong>{{ selected.cell.onTime ? 'да' : 'нет' }}</strong>
+          </div>
+          <div>
+            <span class="ta-details__label">Время на задание</span>
+            <strong>{{ formatDuration(selected.cell.timeSpentSeconds) }}</strong>
+          </div>
+          <div>
+            <span class="ta-details__label">Обновлено</span>
+            <strong>{{ formatDateTime(selected.cell.updatedAt) }}</strong>
+          </div>
+        </div>
+
+        <div class="ta-details__block">
+          <div class="ta-details__label">Решение студента</div>
+          <pre class="ta-details__code">{{ selected.cell.content || '— (нет ответа)' }}</pre>
+        </div>
+      </aside>
     </div>
   `,
   styles: [
@@ -122,16 +193,13 @@ import { TestAnalyticsDto } from '../../api.types';
         background: #f5f6fb;
         border-color: #b2b9ee;
       }
-      .ta-header__home--solo {
-        margin-left: 0;
-      }
       .ta-header__title-box {
         background: #fff;
         border: 1px solid #d1d5e6;
         border-radius: 0.55em;
         padding: 0.5em 0.85em;
         min-width: min(10em, 50vw);
-        max-width: min(32em, 90vw);
+        max-width: min(38em, 90vw);
         display: flex;
         flex-wrap: wrap;
         align-items: center;
@@ -151,25 +219,6 @@ import { TestAnalyticsDto } from '../../api.types';
         background: #e0e7ff;
         color: #312e81;
       }
-      .ta-header__actions {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.5em 0.75em;
-      }
-      .ta-link {
-        padding: 0.45em 0.75em;
-        border-radius: 0.5em;
-        border: 1px solid #93c5fd;
-        background: #eff6ff;
-        color: #1e40af;
-        font-weight: 600;
-        font-size: 0.88em;
-        text-decoration: none;
-      }
-      .ta-link:hover {
-        filter: brightness(0.97);
-      }
       .ta-msg--err {
         padding: 0.65em 0.9em;
         border-radius: 0.5em;
@@ -182,14 +231,8 @@ import { TestAnalyticsDto } from '../../api.types';
       }
       .ta-main {
         width: 100%;
-        max-width: none;
         margin: 0 auto;
-        display: flex;
-        flex-direction: column;
-        gap: 1.25em;
       }
-      .ta-two-col { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 1em; min-height: 0; }
-      @media (max-width: 980px) { .ta-two-col { grid-template-columns: 1fr; } }
       .ta-panel {
         background: #fff;
         border: 1px solid #d1d5e6;
@@ -197,7 +240,14 @@ import { TestAnalyticsDto } from '../../api.types';
         padding: 1em 1.1em 1.15em;
         box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
       }
-      .ta-panel--tasks, .ta-panel--graph { min-height: 0; display: flex; flex-direction: column; }
+      .ta-panel__head {
+        display: flex;
+        justify-content: space-between;
+        gap: 1em;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        margin-bottom: 0.85em;
+      }
       .ta-panel__h {
         margin: 0 0 0.35em;
         font-size: 1.05em;
@@ -205,29 +255,251 @@ import { TestAnalyticsDto } from '../../api.types';
         color: #0f172a;
       }
       .ta-panel__lead {
-        margin: 0 0 1em;
+        margin: 0;
+        max-width: 64em;
         font-size: 0.88em;
         color: #64748b;
       }
-      .ta-task-list { display: flex; flex-direction: column; gap: 0.65em; overflow: auto; min-height: 0; }
-      .ta-task-row { border: 1px solid #e2e8f0; border-radius: 0.5em; background: #f8fafc; padding: 0.55em 0.65em; }
-      .ta-task-row__head { display: flex; align-items: center; gap: 0.45em; margin-bottom: 0.4em; }
-      .ta-task-row__idx { font-weight: 700; color: #1e293b; font-size: 0.84em; }
-      .ta-task-row__title { color: #334155; font-size: 0.88em; }
-      .ta-task-row__stats { display: flex; flex-wrap: wrap; gap: 0.4em; }
-      .ta-task-row__actions { margin-top: 0.5em; }
-      .ta-chip { font-size: 0.78em; padding: 0.22em 0.5em; border-radius: 999px; border: 1px solid transparent; font-weight: 600; }
-      .ta-chip--pass { background: #dcfce7; color: #166534; border-color: #86efac; }
-      .ta-chip--fail { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
-      .ta-chip--skip { background: #e2e8f0; color: #475569; border-color: #cbd5e1; }
-      .ta-link--inline { display: inline-flex; }
-      .ta-bars { display: flex; flex-direction: column; gap: 0.55em; margin-top: 0.1em; }
-      .ta-bar-row { display: grid; grid-template-columns: 2.3em 1fr 2.8em; gap: 0.45em; align-items: center; }
-      .ta-bar-row__label { font-size: 0.8em; color: #334155; font-weight: 600; }
-      .ta-bar-row__track { height: 0.8em; border-radius: 999px; background: #f1f5f9; border: 1px solid #e2e8f0; overflow: hidden; }
-      .ta-bar-row__fill { height: 100%; background: linear-gradient(90deg, #60a5fa, #2563eb); border-radius: 999px; }
-      .ta-bar-row__val { font-size: 0.78em; text-align: right; color: #475569; font-weight: 600; }
-      .ta-empty { border: 1px dashed #cbd5e1; border-radius: 0.5em; background: #f8fafc; color: #64748b; padding: 0.8em; font-size: 0.88em; }
+      .ta-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45em;
+        font-size: 0.82em;
+        color: #475569;
+      }
+      .ta-legend__item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35em;
+      }
+      .ta-mark {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.45em;
+        height: 1.45em;
+        border-radius: 999px;
+        font-weight: 800;
+      }
+      .ta-mark--pass {
+        color: #166534;
+        background: #dcfce7;
+        border: 1px solid #86efac;
+      }
+      .ta-mark--fail {
+        color: #991b1b;
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+      }
+      .ta-table-wrap {
+        max-height: calc(100dvh - 210px);
+        overflow: auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.6em;
+        background: #fff;
+      }
+      .ta-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        min-width: 760px;
+      }
+      .ta-table th,
+      .ta-table td {
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 0.55em 0.65em;
+        vertical-align: middle;
+        background: #fff;
+      }
+      .ta-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: #f8fafc;
+        color: #0f172a;
+        font-size: 0.82em;
+      }
+      .ta-table__student {
+        position: sticky;
+        left: 0;
+        z-index: 4;
+        min-width: 15em;
+        max-width: 22em;
+        text-align: left;
+      }
+      .ta-table__student--body {
+        z-index: 2;
+        background: #fff;
+      }
+      .ta-table__task {
+        min-width: 8.5em;
+        max-width: 12em;
+        text-align: center;
+      }
+      .ta-table__task-num,
+      .ta-table__task-name,
+      .ta-student-name,
+      .ta-student-group {
+        display: block;
+      }
+      .ta-table__task-num {
+        font-weight: 800;
+        margin-bottom: 0.15em;
+      }
+      .ta-table__task-name {
+        font-size: 0.85em;
+        color: #475569;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ta-student-name {
+        color: #1e3a8a;
+        font-size: 0.9em;
+        font-weight: 700;
+      }
+      .ta-student-group {
+        margin-top: 0.15em;
+        color: #64748b;
+        font-size: 0.78em;
+        font-weight: 500;
+      }
+      .ta-table__cell {
+        text-align: center;
+      }
+      .ta-cell-btn {
+        width: 2.25em;
+        height: 2.25em;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        font-size: 1.05em;
+        font-weight: 800;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .ta-cell-btn--pass {
+        background: #dcfce7;
+        color: #166534;
+        border-color: #86efac;
+      }
+      .ta-cell-btn--fail {
+        background: #fee2e2;
+        color: #991b1b;
+        border-color: #fecaca;
+      }
+      .ta-cell-btn:hover {
+        filter: brightness(0.96);
+        transform: translateY(-1px);
+      }
+      .ta-table__score {
+        position: sticky;
+        right: 0;
+        z-index: 4;
+        min-width: 5.5em;
+        text-align: center;
+        font-weight: 800;
+      }
+      .ta-table__score--body {
+        z-index: 2;
+        background: #fff;
+        color: #0f172a;
+      }
+      .ta-empty {
+        border: 1px dashed #cbd5e1;
+        border-radius: 0.5em;
+        background: #f8fafc;
+        color: #64748b;
+        padding: 0.8em;
+        font-size: 0.88em;
+      }
+      .ta-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.28);
+        z-index: 20;
+      }
+      .ta-details {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: min(760px, calc(100vw - 32px));
+        max-height: min(760px, calc(100dvh - 32px));
+        overflow: auto;
+        z-index: 21;
+        background: #fff;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.75em;
+        box-shadow: 0 20px 48px rgba(15, 23, 42, 0.28);
+        padding: 1em 1.1em 1.2em;
+      }
+      .ta-details__close {
+        position: absolute;
+        top: 0.6em;
+        right: 0.7em;
+        width: 2em;
+        height: 2em;
+        border: 0;
+        border-radius: 999px;
+        background: #f1f5f9;
+        color: #334155;
+        cursor: pointer;
+        font-size: 1.1em;
+      }
+      .ta-details__title {
+        margin: 0 2em 0.2em 0;
+        font-size: 1.15em;
+        color: #0f172a;
+      }
+      .ta-details__subtitle {
+        margin: 0 2em 0.9em 0;
+        color: #475569;
+        font-size: 0.9em;
+      }
+      .ta-details__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.65em;
+        margin-bottom: 0.9em;
+      }
+      .ta-details__grid > div {
+        border: 1px solid #e2e8f0;
+        border-radius: 0.55em;
+        padding: 0.55em 0.65em;
+        background: #f8fafc;
+      }
+      .ta-details__label {
+        display: block;
+        color: #64748b;
+        font-size: 0.78em;
+        font-weight: 700;
+        margin-bottom: 0.2em;
+      }
+      .ta-details__ok {
+        color: #166534;
+      }
+      .ta-details__bad {
+        color: #991b1b;
+      }
+      .ta-details__block {
+        margin-top: 0.7em;
+      }
+      .ta-details__code {
+        margin: 0;
+        padding: 0.75em 0.85em;
+        border-radius: 0.55em;
+        border: 1px solid #e2e8f0;
+        background: #0f172a;
+        color: #e2e8f0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.82em;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 360px;
+        overflow: auto;
+      }
     `,
   ],
 })
@@ -237,6 +509,7 @@ import { TestAnalyticsDto } from '../../api.types';
 export class TestAnalyticsComponent implements OnInit {
   testId: number | null = null;
   data: TestAnalyticsDto | null = null;
+  selected: SelectedAnalyticsCell | null = null;
   loading = true;
   error = '';
 
@@ -274,6 +547,24 @@ export class TestAnalyticsComponent implements OnInit {
   }
 
   /**
+   * Открывает подробности по выбранной ячейке матрицы.
+   */
+  selectCell(
+    student: TestAnalyticsStudentRow,
+    question: TestAnalyticsQuestionColumnRow,
+    cell: TestAnalyticsStudentCellRow,
+  ): void {
+    this.selected = { student, question, cell };
+  }
+
+  /**
+   * Закрывает подробности решения.
+   */
+  closeDetails(): void {
+    this.selected = null;
+  }
+
+  /**
    * Возвращает пользователя к списку аналитики тестов.
    */
   goList(): void {
@@ -281,11 +572,35 @@ export class TestAnalyticsComponent implements OnInit {
   }
 
   /**
-   * Вычисляет процент значения от общего количества.
+   * Формирует подпись ячейки для screen reader.
    */
-  pct(part: number, whole: number): number {
-    if (whole <= 0) return 0;
-    return Math.min(100, (100 * part) / whole);
+  cellLabel(
+    student: TestAnalyticsStudentRow,
+    question: TestAnalyticsQuestionColumnRow,
+    cell: TestAnalyticsStudentCellRow,
+  ): string {
+    return `${student.fullName}, задание ${question.sortOrder + 1}: ${cell.passed ? 'зачтено' : 'не зачтено'}`;
+  }
+
+  /**
+   * Форматирует длительность в секундах.
+   */
+  formatDuration(value: number | null): string {
+    if (value == null || value < 0) return '—';
+    const m = Math.floor(value / 60);
+    const s = value % 60;
+    if (m <= 0) return `${s} с`;
+    return `${m} мин ${s} с`;
+  }
+
+  /**
+   * Форматирует дату обновления ответа.
+   */
+  formatDateTime(value: string | null): string {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleString('ru-RU');
   }
 
   /**

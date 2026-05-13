@@ -394,6 +394,48 @@ export interface TestAnalyticsQuestionRow {
 }
 
 /**
+ * Колонка матрицы аналитики: задание теста.
+ */
+export interface TestAnalyticsQuestionColumnRow {
+  testQuestionId: number;
+  sortOrder: number;
+  assignmentName: string;
+  taskName: string;
+  maxAttempts: number;
+  solveTimeMinutes: number | null;
+}
+
+/**
+ * Ячейка матрицы аналитики: результат студента по заданию.
+ */
+export interface TestAnalyticsStudentCellRow {
+  testQuestionId: number;
+  passed: boolean;
+  onTime: boolean;
+  attemptsOk: boolean;
+  attemptsUsed: number;
+  maxAttempts: number;
+  timeSpentSeconds: number | null;
+  solutionStatus: string;
+  statusLabel: string;
+  updatedAt: string | null;
+  content: string;
+}
+
+/**
+ * Строка матрицы аналитики: студент.
+ */
+export interface TestAnalyticsStudentRow {
+  studentId: number;
+  fullName: string;
+  groupName: string;
+  passedCount: number;
+  totalCount: number;
+  score: string;
+  cells: TestAnalyticsStudentCellRow[];
+}
+
+/**
  * Сводка по группе в аналитике теста.
  */
 export interface TestAnalyticsGroupRow {
@@ -443,6 +485,8 @@ export interface TestAnalyticsDto {
   totalAnswerRows: number;
   questionCount: number;
   questions: TestAnalyticsQuestionRow[];
+  questionColumns: TestAnalyticsQuestionColumnRow[];
+  studentRows: TestAnalyticsStudentRow[];
   byGroup: TestAnalyticsGroupRow[];
   statusDistribution: TestAnalyticsStatusSlice[];
   attemptDistribution: TestAnalyticsAttemptBin[];

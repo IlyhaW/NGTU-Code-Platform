@@ -14,6 +14,8 @@ public record TestAnalyticsDto(
         int totalAnswerRows,
         int questionCount,
         List<TestAnalyticsQuestionDto> questions,
+        List<TestAnalyticsQuestionColumnDto> questionColumns,
+        List<TestAnalyticsStudentRowDto> studentRows,
         List<TestAnalyticsGroupDto> byGroup,
         List<TestAnalyticsStatusSliceDto> statusDistribution,
         List<TestAnalyticsAttemptBinDto> attemptDistribution,

@@ -21,7 +21,10 @@ import com.example.auth.dto.TestAnalyticsDayDto;
 import com.example.auth.dto.TestAnalyticsDto;
 import com.example.auth.dto.TestAnalyticsGroupDto;
 import com.example.auth.dto.TestAnalyticsQuestionDto;
+import com.example.auth.dto.TestAnalyticsQuestionColumnDto;
 import com.example.auth.dto.TestAnalyticsStatusSliceDto;
+import com.example.auth.dto.TestAnalyticsStudentCellDto;
+import com.example.auth.dto.TestAnalyticsStudentRowDto;
 import com.example.auth.dto.TestListItemDto;
 import com.example.auth.dto.TestSubmissionsDto;
 import com.example.auth.entity.Assignment;
@@ -909,6 +912,86 @@ public class TestService {
                             avgTime));
         }
 
+        List<TestAnalyticsQuestionColumnDto> questionColumns = new ArrayList<>();
+        for (TestQuestion q : ordered) {
+            Assignment asg = assignmentMap.get(q.getAssignmentId());
+            String assignmentName = asg != null ? asg.getName() : "Тема #" + q.getAssignmentId();
+            String taskName = "—";
+            if (q.getAssignmentTaskId() != null) {
+                AssignmentTask task = taskMap.get(q.getAssignmentTaskId());
+                taskName = task != null ? task.getTitle() : "Задача #" + q.getAssignmentTaskId();
+            }
+            questionColumns.add(
+                    new TestAnalyticsQuestionColumnDto(
+                            q.getId(),
+                            q.getSortOrder(),
+                            assignmentName,
+                            taskName,
+                            q.getMaxAttempts(),
+                            q.getSolveTimeMinutes()));
+        }
+
+        Map<Long, Map<Long, TestQuestionAnswer>> answerByStudentAndQuestion = new HashMap<>();
+        for (TestQuestionAnswer answer : allAnswers) {
+            answerByStudentAndQuestion
+                    .computeIfAbsent(answer.getStudentUserId(), ignored -> new HashMap<>())
+                    .put(answer.getTestQuestion().getId(), answer);
+        }
+        List<TestAnalyticsStudentRowDto> studentRows = new ArrayList<>();
+        for (User student : students) {
+            Map<Long, TestQuestionAnswer> answers =
+                    answerByStudentAndQuestion.getOrDefault(student.getId(), Map.of());
+            List<TestAnalyticsStudentCellDto> cells = new ArrayList<>();
+            int passed = 0;
+            for (TestQuestion q : ordered) {
+                TestQuestionAnswer answer = answers.get(q.getId());
+                int maxAttempts = q.getMaxAttempts() > 0 ? q.getMaxAttempts() : Integer.MAX_VALUE;
+                int attemptsUsed = answer != null ? answer.getAttemptsUsed() : 0;
+                boolean attemptsOk = answer != null && attemptsUsed <= maxAttempts;
+                boolean onTime =
+                        answer != null
+                                && answer.getUpdatedAt() != null
+                                && !answer.getUpdatedAt().isAfter(test.getEndDate());
+                boolean cellPassed =
+                        answer != null
+                                && STATUS_GRADED_PASS.equals(answer.getSolutionStatus())
+                                && onTime
+                                && attemptsOk;
+                if (cellPassed) {
+                    passed++;
+                }
+                String status = answer != null && answer.getSolutionStatus() != null
+                        ? answer.getSolutionStatus()
+                        : STATUS_NONE;
+                cells.add(
+                        new TestAnalyticsStudentCellDto(
+                                q.getId(),
+                                cellPassed,
+                                onTime,
+                                attemptsOk,
+                                attemptsUsed,
+                                maxAttempts == Integer.MAX_VALUE ? 0 : maxAttempts,
+                                answer != null ? answer.getTimeSpentSeconds() : null,
+                                status,
+                                statusLabelRu(status),
+                                answer != null ? answer.getUpdatedAt() : null,
+                                answer != null ? answer.getContent() : ""));
+            }
+            String groupName =
+                    student.getGroup() != null && student.getGroup().getName() != null
+                            ? student.getGroup().getName()
+                            : "";
+            studentRows.add(
+                    new TestAnalyticsStudentRowDto(
+                            student.getId(),
+                            student.getFullName(),
+                            groupName,
+                            passed,
+                            ordered.size(),
+                            passed + "/" + ordered.size(),
+                            cells));
+        }
+
         List<TestAnalyticsGroupDto> groupRows = new ArrayList<>();
         for (Long gid : groupIds.stream().sorted().collect(Collectors.toList())) {
             GroupEntity ge = groupEntityMap.get(gid);
@@ -964,6 +1047,8 @@ public class TestService {
                         totalAnswerRows,
                         ordered.size(),
                         questionRows,
+                        questionColumns,
+                        studentRows,
                         groupRows,
                         statusSlices,
                         attemptRows,
