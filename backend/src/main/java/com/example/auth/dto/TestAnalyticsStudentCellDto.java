@@ -14,4 +14,5 @@ public record TestAnalyticsStudentCellDto(
         String solutionStatus,
         String statusLabel,
         LocalDateTime updatedAt,
+        String taskContent,
         String content) {}

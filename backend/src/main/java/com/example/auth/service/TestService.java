@@ -937,14 +937,26 @@ public class TestService {
                     .computeIfAbsent(answer.getStudentUserId(), ignored -> new HashMap<>())
                     .put(answer.getTestQuestion().getId(), answer);
         }
+        Map<Long, List<AssignmentVariant>> variantsByTaskId = new HashMap<>();
+        for (Long taskId : taskIds) {
+            variantsByTaskId.put(taskId, assignmentVariantRepository.findByTaskIdOrderByIdAsc(taskId));
+        }
         List<TestAnalyticsStudentRowDto> studentRows = new ArrayList<>();
         for (User student : students) {
             Map<Long, TestQuestionAnswer> answers =
                     answerByStudentAndQuestion.getOrDefault(student.getId(), Map.of());
             List<TestAnalyticsStudentCellDto> cells = new ArrayList<>();
             int passed = 0;
+            int studentIndexInTest = studentIndexForTest(test, student.getId());
             for (TestQuestion q : ordered) {
                 TestQuestionAnswer answer = answers.get(q.getId());
+                AssignmentTask task =
+                        q.getAssignmentTaskId() != null ? taskMap.get(q.getAssignmentTaskId()) : null;
+                List<AssignmentVariant> variants =
+                        q.getAssignmentTaskId() != null
+                                ? variantsByTaskId.getOrDefault(q.getAssignmentTaskId(), List.of())
+                                : List.of();
+                String taskContent = taskTextForStudent(task, variants, q.isIndividualVariants(), studentIndexInTest);
                 int maxAttempts = q.getMaxAttempts() > 0 ? q.getMaxAttempts() : Integer.MAX_VALUE;
                 int attemptsUsed = answer != null ? answer.getAttemptsUsed() : 0;
                 boolean attemptsOk = answer != null && attemptsUsed <= maxAttempts;
@@ -975,6 +987,7 @@ public class TestService {
                                 status,
                                 statusLabelRu(status),
                                 answer != null ? answer.getUpdatedAt() : null,
+                                taskContent,
                                 answer != null ? answer.getContent() : ""));
             }
             String groupName =

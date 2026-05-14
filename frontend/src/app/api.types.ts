@@ -419,6 +419,7 @@ export interface TestAnalyticsStudentCellRow {
   solutionStatus: string;
   statusLabel: string;
   updatedAt: string | null;
+  taskContent: string;
   content: string;
 }
 

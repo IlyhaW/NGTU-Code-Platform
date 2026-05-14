@@ -141,6 +141,11 @@ interface SelectedAnalyticsCell {
         </div>
 
         <div class="ta-details__block">
+          <div class="ta-details__label">Текст варианта</div>
+          <pre class="ta-details__task">{{ selected.cell.taskContent || '—' }}</pre>
+        </div>
+
+        <div class="ta-details__block">
           <div class="ta-details__label">Решение студента</div>
           <pre class="ta-details__code">{{ selected.cell.content || '— (нет ответа)' }}</pre>
         </div>
@@ -484,6 +489,21 @@ interface SelectedAnalyticsCell {
       }
       .ta-details__block {
         margin-top: 0.7em;
+      }
+      .ta-details__task {
+        margin: 0;
+        padding: 0.75em 0.85em;
+        border-radius: 0.55em;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        color: #0f172a;
+        font-family: inherit;
+        font-size: 0.86em;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 260px;
+        overflow: auto;
       }
       .ta-details__code {
         margin: 0;
