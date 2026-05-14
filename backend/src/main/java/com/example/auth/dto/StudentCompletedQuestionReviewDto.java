@@ -13,9 +13,7 @@ public class StudentCompletedQuestionReviewDto {
     private Integer timeSpentSeconds;
     /** Код решения; пусто если не сохраняли. */
     private String solutionContent;
-    /**
-     * Технический статус: saved | awaiting_review | graded_pass | graded_fail | none
-     */
+    /** Технический статус: saved | graded_pass | graded_fail | none. */
     private String solutionStatus;
     /** Подпись для интерфейса. */
     private String statusLabel;

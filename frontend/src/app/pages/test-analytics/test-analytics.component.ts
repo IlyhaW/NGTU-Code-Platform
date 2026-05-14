@@ -632,7 +632,7 @@ export class TestAnalyticsComponent implements OnInit {
       active: 'Активен',
       archived: 'В архиве',
       saved: 'Сохранён',
-      awaiting_review: 'На проверке',
+      awaiting_review: 'Не проверено автотестами',
       none: 'Нет ответа',
       graded_pass: 'Зачёт',
       graded_fail: 'Не зачёт',

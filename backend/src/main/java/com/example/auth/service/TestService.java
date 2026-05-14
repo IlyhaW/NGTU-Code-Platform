@@ -82,7 +82,6 @@ public class TestService {
     private static final int MAX_ANSWER_CHARS = 512_000;
 
     private static final String STATUS_SAVED = "saved";
-    private static final String STATUS_AWAITING_REVIEW = "awaiting_review";
     private static final String STATUS_NONE = "none";
     private static final String STATUS_GRADED_PASS = "graded_pass";
     private static final String STATUS_GRADED_FAIL = "graded_fail";
@@ -301,18 +300,7 @@ public class TestService {
             row.setTotalTimeSeconds(totalTimeSeconds);
         }
         studentTestCompletionRepository.save(row);
-        markAnswersAwaitingReview(userId, testId);
         return true;
-    }
-
-    /** Переводит все ответы студента по тесту в статус ожидания проверки. */
-    private void markAnswersAwaitingReview(Long userId, Long testId) {
-        List<TestQuestionAnswer> list =
-                testQuestionAnswerRepository.findByStudentUserIdAndTestQuestion_Test_Id(userId, testId);
-        for (TestQuestionAnswer a : list) {
-            a.setSolutionStatus(STATUS_AWAITING_REVIEW);
-            testQuestionAnswerRepository.save(a);
-        }
     }
 
     /** Возвращает русское отображаемое имя статуса ответа. */
@@ -323,8 +311,8 @@ public class TestService {
         switch (status) {
             case STATUS_SAVED:
                 return "Сохранено";
-            case STATUS_AWAITING_REVIEW:
-                return "На проверке у преподавателя";
+            case "awaiting_review":
+                return "Не проверено автотестами";
             case STATUS_GRADED_PASS:
                 return "Зачёт";
             case STATUS_GRADED_FAIL:
