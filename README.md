@@ -34,12 +34,14 @@ docker compose up -d --build
 
 - Frontend: `http://localhost:4200`
 - Backend API: `http://localhost:8080/api/auth`
-- PostgreSQL: `localhost:5432` (`postgres/postgres`, DB: `ngtu_code_platform`)
+- PostgreSQL: `localhost:5433` (`postgres/postgres`, DB: `ngtu_code_platform`)
 
 Тестовые пользователи:
 
 - Teacher: `teacher` / `teacher123`
-- Student: `student` / `student123`
+- Students: `student01` ... `student16` / `student123`
+
+При первом создании Docker-volume база заполняется демонстрационными данными: учебными группами, студентами, темами, задачами, вариантами, тест-кейсами, тестами и решениями студентов для просмотра аналитики.
 
 Остановить и удалить контейнеры:
 
@@ -61,6 +63,7 @@ docker compose down -v
 - [x] Генерация тестов для решений студентов
 - [x] Автоматическая проверка решений студентов
 - [x] Аналитика по тестам
+- [x] Сборка приложения в docker - контейнер
 - [ ] Обучение и развертывание локального ИИ
 - [ ] Настройка CI/CD пайплайна
 - [ ] Продакшн-развертывание на сервере с публичным доступом по доменному URL
