@@ -46,7 +46,7 @@ public class AssignmentService {
     private final AssignmentTaskRepository assignmentTaskRepository;
     private final AssignmentVariantRepository assignmentVariantRepository;
     private final TaskTestCaseRepository taskTestCaseRepository;
-    private final GeminiVariantGenerator geminiVariantGenerator;
+    private final AiVariantGenerator aiVariantGenerator;
 
     /**
      * Создает сервис тем и внедряет зависимости.
@@ -55,12 +55,12 @@ public class AssignmentService {
                              AssignmentTaskRepository assignmentTaskRepository,
                              AssignmentVariantRepository assignmentVariantRepository,
                              TaskTestCaseRepository taskTestCaseRepository,
-                             GeminiVariantGenerator geminiVariantGenerator) {
+                             AiVariantGenerator aiVariantGenerator) {
         this.assignmentRepository = assignmentRepository;
         this.assignmentTaskRepository = assignmentTaskRepository;
         this.assignmentVariantRepository = assignmentVariantRepository;
         this.taskTestCaseRepository = taskTestCaseRepository;
-        this.geminiVariantGenerator = geminiVariantGenerator;
+        this.aiVariantGenerator = aiVariantGenerator;
     }
 
     /** Возвращает все темы без фильтрации по преподавателю. */
@@ -435,23 +435,23 @@ public class AssignmentService {
         int nonOriginalBefore = variants.size() - 1;
         String assignmentName = a.getName() != null ? a.getName() : "";
         String taskTitle = task.getTitle() != null ? task.getTitle() : "";
-        List<GeminiVariantGenerator.GeneratedVariant> generatedTexts =
-                geminiVariantGenerator.generateDetailed(assignmentName, taskTitle, baseContent, count, difficulty, style);
+        List<AiVariantGenerator.GeneratedVariant> generatedTexts =
+                aiVariantGenerator.generateDetailed(assignmentName, taskTitle, baseContent, count, difficulty, style);
         List<VariantDetailDto> created = new ArrayList<>();
         taskTestCaseRepository.deactivateActiveByTaskId(task.getId());
         for (int j = 1; j <= generatedTexts.size(); j++) {
-            GeminiVariantGenerator.GeneratedVariant draft = generatedTexts.get(j - 1);
+            AiVariantGenerator.GeneratedVariant draft = generatedTexts.get(j - 1);
             AssignmentVariant v = new AssignmentVariant();
             v.setTaskId(task.getId());
             v.setVariantName("Вариант " + (nonOriginalBefore + j));
             v.setContent(contentForPersistence(draft.content()));
             v = assignmentVariantRepository.save(v);
             int added = 0;
-            for (GeminiVariantGenerator.GeneratedCase tc : draft.publicTests()) {
+            for (AiVariantGenerator.GeneratedCase tc : draft.publicTests()) {
                 added += saveGeneratedTestCase(
                         task.getId(), v.getId(), tc, true, timeLimitMs, memoryLimitKb);
             }
-            for (GeminiVariantGenerator.GeneratedCase tc : draft.privateTests()) {
+            for (AiVariantGenerator.GeneratedCase tc : draft.privateTests()) {
                 added += saveGeneratedTestCase(
                         task.getId(), v.getId(), tc, false, timeLimitMs, memoryLimitKb);
             }
@@ -477,7 +477,7 @@ public class AssignmentService {
     private int saveGeneratedTestCase(
             Long taskId,
             Long variantId,
-            GeminiVariantGenerator.GeneratedCase tc,
+            AiVariantGenerator.GeneratedCase tc,
             boolean isPublic,
             int timeLimitMs,
             int memoryLimitKb) {

@@ -1,4 +1,4 @@
-package com.example.auth.service;
+﻿package com.example.auth.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,9 +16,9 @@ import java.util.List;
 
 @Component
 /**
- * Генератор вариантов задач через OpenRouter/Gemini API.
+ * Генератор вариантов задач через OpenRouter API.
  */
-public class GeminiVariantGenerator {
+public class AiVariantGenerator {
     private static final ObjectMapper JSON = new ObjectMapper().findAndRegisterModules();
     private static final String OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
     /** Сколько открытых и сколько закрытых тест-кейсов нужно на каждый вариант. */
@@ -33,14 +33,13 @@ public class GeminiVariantGenerator {
     /**
      * Инициализирует клиент генерации и параметры подключения к OpenRouter.
      */
-    public GeminiVariantGenerator(
+    public AiVariantGenerator(
             @Value("${openrouter.api-key:}") String apiKey,
-            @Value("${openrouter.model:google/gemini-2.0-flash-001}") String configuredModel,
+            @Value("${openrouter.model}") String configuredModel,
             @Value("${openrouter.referer:http://localhost}") String referer,
             @Value("${openrouter.app-title:auth-zero}") String appTitle) {
         this.apiKey = apiKey != null ? apiKey.trim() : "";
-        this.configuredModel =
-                configuredModel != null ? configuredModel.trim() : "google/gemini-2.0-flash-001";
+        this.configuredModel = configuredModel != null ? configuredModel.trim() : "";
         this.referer = referer != null ? referer.trim() : "http://localhost";
         this.appTitle = appTitle != null ? appTitle.trim() : "auth-zero";
     }
@@ -83,6 +82,10 @@ public class GeminiVariantGenerator {
         if (apiKey.isBlank()) {
             throw new IllegalArgumentException(
                     "Не задан OpenRouter API key. Укажите openrouter.api-key в application.properties или переменной окружения.");
+        }
+        if (configuredModel.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Не задана модель OpenRouter. Укажите OPENROUTER_MODEL в .env/docker-compose.yml или openrouter.model в application.properties.");
         }
         String prompt = buildDetailedPrompt(assignmentName, taskTitle, sourceText, count, difficulty, style);
         String body = requestBody(prompt, configuredModel);
