@@ -108,15 +108,17 @@ interface SessionGeneratedItem {
 
           <section class="task-detail-variants task-detail-gen__preview-col">
             <h3 class="task-detail-variants__title">Содержимое варианта</h3>
-            <div class="task-detail-gen__preview">
-              <div *ngIf="!selectedSession" class="task-detail-gen__empty">
-                Выберите вариант из списка слева.
-              </div>
-              <ng-container *ngIf="selectedSession">
-                <h4 class="task-detail-gen__preview-title">{{ selectedSession.label }}</h4>
-                <pre class="task-detail-gen__preview-body">{{ selectedSession.content }}</pre>
-              </ng-container>
+            <div *ngIf="!selectedSession" class="task-detail-gen__empty">
+              Выберите вариант из списка слева.
             </div>
+            <ng-container *ngIf="selectedSession">
+              <h4 class="task-detail-gen__preview-title">{{ selectedSession.label }}</h4>
+              <textarea
+                class="task-detail-original__body"
+                readonly
+                [ngModel]="selectedSession.content"
+              ></textarea>
+            </ng-container>
           </section>
         </div>
 
@@ -288,30 +290,19 @@ interface SessionGeneratedItem {
       background: #fecaca;
       border-color: #f87171;
     }
-    .task-detail-gen__preview-col { display: flex; flex-direction: column; }
-    .task-detail-gen__preview {
-      margin-top: 0;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.45em;
-      background: #f8fafc;
-      padding: 0.65em 0.7em;
+    .task-detail-gen__preview-col { display: flex; flex-direction: column; min-height: 0; }
+    .task-detail-gen__preview-col .task-detail-original__body {
       flex: 1 1 auto;
-      min-height: 0;
-      overflow: auto;
+      min-height: 5em;
+      color: #0f172a;
+      background: #fff;
     }
     .task-detail-gen__preview-title {
       margin: 0 0 0.35em;
-      font-size: 0.86em;
-      color: #334155;
-      font-weight: 600;
-    }
-    .task-detail-gen__preview-body {
-      margin: 0;
-      white-space: pre-wrap;
-      font-size: 0.82em;
-      line-height: 1.35;
+      font-size: 0.95em;
       color: #0f172a;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 600;
+      flex-shrink: 0;
     }
     .task-detail-gen__field {
       display: flex; flex-direction: column; gap: 0.45em; margin-bottom: 0.9em; width: 100%; min-width: 0;
