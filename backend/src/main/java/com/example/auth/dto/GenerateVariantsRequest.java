@@ -10,6 +10,8 @@ public class GenerateVariantsRequest {
     private Integer difficulty;
     /** Стиль / описание (произвольная строка). */
     private String style;
+    /** Алгоритм решения (если передан — сохраняется в задаче перед генерацией). */
+    private String solutionAlgorithm;
     /**
      * Если true — все варианты кроме исходного удаляются, затем создаются новые
      * (режим «сгенерировать заново»).
@@ -38,6 +40,14 @@ public class GenerateVariantsRequest {
 
     public void setStyle(String style) {
         this.style = style;
+    }
+
+    public String getSolutionAlgorithm() {
+        return solutionAlgorithm;
+    }
+
+    public void setSolutionAlgorithm(String solutionAlgorithm) {
+        this.solutionAlgorithm = solutionAlgorithm;
     }
 
     public Boolean getReplaceExisting() {

@@ -114,6 +114,7 @@ export interface TaskDetailDto {
   outputFormat?: string | null;
   judgeTimeLimitMs?: number | null;
   judgeMemoryLimitKb?: number | null;
+  solutionAlgorithm?: string | null;
   variants: VariantSummaryDto[];
 }
 
@@ -127,6 +128,7 @@ export interface CreateTaskRequest {
   outputFormat?: string | null;
   judgeTimeLimitMs?: number | null;
   judgeMemoryLimitKb?: number | null;
+  solutionAlgorithm?: string | null;
 }
 
 /**
@@ -207,6 +209,7 @@ export interface GenerateVariantsRequest {
   count?: number;
   difficulty?: number;
   style?: string;
+  solutionAlgorithm?: string;
   replaceExisting?: boolean;
 }
 

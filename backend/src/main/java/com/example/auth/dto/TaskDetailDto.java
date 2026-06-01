@@ -12,6 +12,7 @@ public class TaskDetailDto {
     private String outputFormat;
     private Integer judgeTimeLimitMs;
     private Integer judgeMemoryLimitKb;
+    private String solutionAlgorithm;
     private List<VariantSummaryDto> variants;
 
     public Long getId() {
@@ -76,6 +77,14 @@ public class TaskDetailDto {
 
     public void setJudgeMemoryLimitKb(Integer judgeMemoryLimitKb) {
         this.judgeMemoryLimitKb = judgeMemoryLimitKb;
+    }
+
+    public String getSolutionAlgorithm() {
+        return solutionAlgorithm;
+    }
+
+    public void setSolutionAlgorithm(String solutionAlgorithm) {
+        this.solutionAlgorithm = solutionAlgorithm;
     }
 
     public List<VariantSummaryDto> getVariants() {

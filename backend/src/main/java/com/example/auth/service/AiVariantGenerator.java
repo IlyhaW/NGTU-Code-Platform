@@ -60,10 +60,23 @@ public class AiVariantGenerator {
             String assignmentName,
             String taskTitle,
             String sourceText,
+            String solutionAlgorithm,
+            String inputFormat,
+            String outputFormat,
             int count,
             int difficulty,
             String style) {
-        List<GeneratedVariant> detailed = generateDetailed(assignmentName, taskTitle, sourceText, count, difficulty, style);
+        List<GeneratedVariant> detailed =
+                generateDetailed(
+                        assignmentName,
+                        taskTitle,
+                        sourceText,
+                        solutionAlgorithm,
+                        inputFormat,
+                        outputFormat,
+                        count,
+                        difficulty,
+                        style);
         List<String> out = new ArrayList<>();
         for (GeneratedVariant v : detailed) {
             out.add(v.content());
@@ -76,6 +89,9 @@ public class AiVariantGenerator {
             String assignmentName,
             String taskTitle,
             String sourceText,
+            String solutionAlgorithm,
+            String inputFormat,
+            String outputFormat,
             int count,
             int difficulty,
             String style) {
@@ -87,12 +103,26 @@ public class AiVariantGenerator {
             throw new IllegalArgumentException(
                     "Не задана модель OpenRouter. Укажите OPENROUTER_MODEL в .env/docker-compose.yml или openrouter.model в application.properties.");
         }
-        String prompt = buildDetailedPrompt(assignmentName, taskTitle, sourceText, count, difficulty, style);
+        String algorithm = solutionAlgorithm == null ? "" : solutionAlgorithm.trim();
+        if (algorithm.isBlank()) {
+            throw new IllegalArgumentException("Алгоритм решения не задан.");
+        }
+        String prompt =
+                buildDetailedPrompt(
+                        assignmentName,
+                        taskTitle,
+                        sourceText,
+                        algorithm,
+                        inputFormat,
+                        outputFormat,
+                        count,
+                        difficulty,
+                        style);
         String body = requestBody(prompt, configuredModel);
         HttpRequest req =
                 HttpRequest.newBuilder()
                         .uri(URI.create(OPENROUTER_URL))
-                        .timeout(Duration.ofSeconds(60))
+                        .timeout(Duration.ofSeconds(120))
                         .header("Content-Type", "application/json")
                         .header("Authorization", "Bearer " + apiKey)
                         .header("HTTP-Referer", referer)
@@ -116,41 +146,87 @@ public class AiVariantGenerator {
 
     /** Собирает prompt для генерации структурированного JSON-ответа. */
     private static String buildDetailedPrompt(
-            String assignmentName, String taskTitle, String sourceText, int count, int difficulty, String style) {
-        String normalizedStyle = style == null || style.isBlank() ? "нейтральный" : style.trim();
+            String assignmentName,
+            String taskTitle,
+            String sourceText,
+            String solutionAlgorithm,
+            String inputFormat,
+            String outputFormat,
+            int count,
+            int difficulty,
+            String style) {
+        String styleInstruction = buildStyleInstruction(style);
+        String inputFmt = inputFormat == null || inputFormat.isBlank() ? "не задан, выведи из условия" : inputFormat.trim();
+        String outputFmt = outputFormat == null || outputFormat.isBlank() ? "не задан, выведи из условия" : outputFormat.trim();
         return """
-                Ты помогаешь преподавателю составлять варианты задач по программированию.
+                Ты помогаешь преподавателю составлять варианты задач по программированию и автотесты к ним.
                 Верни результат строго в JSON без markdown и пояснений:
                 {"variants":[{"name":"Вариант 1","content":"...","public_tests":[{"input":"...","output":"..."}],"private_tests":[{"input":"...","output":"..."}]}]}
 
-                Требования:
-                - Язык: весь ответ только на русском. Поля name, content, а также все input и output в public_tests и private_tests — на русском (кроме имён переменных/функций в коде, если он есть внутри теста; пояснения к заданию — на русском).
+                Общие требования:
+                - Язык: весь ответ только на русском. Поля name, content, а также все input и output в public_tests и private_tests — на русском (кроме имён переменных/функций в коде, если он есть внутри теста).
                 - Количество вариантов: %d
                 - Сложность: %d из 5
-                - Стиль формулировки: %s
-                - Тематика: %s
-                - Базовая задача: %s
-                - Основной текст исходного варианта:
+                - Тематика курса: %s
+                - Название задачи: %s
+                - %s
+
+                Алгоритм решения (единый для ВСЕХ вариантов этой задачи, включая новые):
+                ---
+                %s
+                ---
+                Этот алгоритм — эталон проверки. Для каждого тест-кейса каждого варианта:
+                1) сформируй input в контексте сюжета варианта;
+                2) вычисли output, строго применив алгоритм к input (описание, формула, псевдокод — как указано выше);
+                3) не подбирай output «на глаз» и не копируй примеры из условия без пересчёта.
+
+                Формат входных данных (для тестов): %s
+                Формат выходных данных (для тестов): %s
+
+                Основной текст исходного варианта:
                 ---
                 %s
                 ---
 
-                Каждый вариант должен быть самодостаточным текстом условия (что дано, что требуется, формат входа/выхода при необходимости).
-                Варианты должны отличаться друг от друга данными/нюансами, но оставаться в той же теме и примерно той же длины.
-                Для каждого варианта:
-                - поле content: только полный текст условия (без markdown). Не включай в content примеры ввода-вывода, числовые демонстрации, секции «Пример», «Вход», «Выход» — любые демонстрационные пары вход/выход только в public_tests и private_tests.
-                - поле public_tests: ровно %d объектов — открытые тест-кейсы (их может видеть студент при проверке).
-                - поле private_tests: ровно %d объектов — закрытые тест-кейсы (скрыты от студента).
-                public_tests и private_tests: пары input/output в plain text, без markdown.
+                Варианты условий:
+                - Каждый вариант — самодостаточный текст (что дано, что требуется, формат ввода/вывода при необходимости).
+                - Варианты должны сохранять ту же вычислительную суть, что исходник, но отличаться сюжетом, числами и формулировками.
+                - Поле content: только полный текст условия (без markdown). Не включай в content примеры ввода-вывода, секции «Пример», «Вход», «Выход» — любые демонстрационные пары только в public_tests и private_tests.
+
+                Тест-кейсы (для каждого варианта отдельно):
+                - public_tests: ровно %d открытых тест-кейсов (видны студенту).
+                - private_tests: ровно %d закрытых тест-кейсов.
+                - input должен быть реалистичен для сюжета варианта (например, дневная температура на улице — разумный диапазон примерно от −45 до +50 °C, а не от −1000 до +2000; цены в магазине — положительные и правдоподобные).
+                - output должен точно следовать из алгоритма решения при данных input; перед ответом мысленно перепроверь каждую пару.
+                - public_tests и private_tests: пары input/output в plain text, без markdown; наборы input между вариантами должны различаться.
+
+                Самопроверка перед ответом:
+                - Для каждого варианта примени алгоритм решения ко всем input и убедись, что output согласован.
+                - Новые варианты должны быть проверяемы тем же алгоритмом, что и исходник.
                 """.formatted(
                 count,
                 difficulty,
-                normalizedStyle,
                 safe(assignmentName),
                 safe(taskTitle),
+                styleInstruction,
+                safe(solutionAlgorithm),
+                inputFmt,
+                outputFmt,
                 safe(sourceText),
                 EXPECTED_PUBLIC_TESTS,
                 EXPECTED_PRIVATE_TESTS);
+    }
+
+    /** Формирует инструкцию по стилю: при пустом поле — разнообразные сюжеты. */
+    private static String buildStyleInstruction(String style) {
+        if (style == null || style.isBlank()) {
+            return """
+                    Стиль формулировки: не задан. Сделай варианты ярко разными по сюжету и обстановке \
+                    (например: рынок, городской парк, космическая станция, школьный класс, спортивный зал, \
+                    библиотека, ферма, метро и т.д.). Не повторяй одну обстановку в двух вариантах. \
+                    Формулировки должны быть живыми и интересными, но сохранять одну вычислительную задачу.""";
+        }
+        return "Стиль формулировки (единый для всех вариантов): " + style.trim();
     }
 
     /** Возвращает безопасную строку вместо null. */
@@ -163,14 +239,17 @@ public class AiVariantGenerator {
         try {
             com.fasterxml.jackson.databind.node.ObjectNode root = JSON.createObjectNode();
             root.put("model", model);
-            root.put("temperature", 0.8);
+            root.put("temperature", 0.7);
 
             com.fasterxml.jackson.databind.node.ArrayNode messages = JSON.createArrayNode();
             com.fasterxml.jackson.databind.node.ObjectNode system = JSON.createObjectNode();
             system.put("role", "system");
             system.put(
                     "content",
-                    "Отвечай строго JSON-объектом формата {\"variants\":[{\"name\":\"...\",\"content\":\"...\",\"public_tests\":[{\"input\":\"...\",\"output\":\"...\"}],\"private_tests\":[{\"input\":\"...\",\"output\":\"...\"}]}]} — только русский язык во всех текстовых полях (условие и тесты), без примеров внутри content.");
+                    """
+                    Отвечай строго JSON-объектом формата {"variants":[{"name":"...","content":"...","public_tests":[{"input":"...","output":"..."}],"private_tests":[{"input":"...","output":"..."}]}]}.
+                    Только русский язык во всех текстовых полях. Выходы тестов вычисляй по заданному алгоритму решения, а не угадывай.
+                    Входы тестов должны соответствовать сюжету варианта. Без примеров внутри content.""");
             messages.add(system);
             com.fasterxml.jackson.databind.node.ObjectNode user = JSON.createObjectNode();
             user.put("role", "user");

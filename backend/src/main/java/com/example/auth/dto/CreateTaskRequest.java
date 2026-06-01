@@ -12,6 +12,8 @@ public class CreateTaskRequest {
     private Integer judgeTimeLimitMs;
     /** Ограничение памяти выполнения решения в килобайтах. */
     private Integer judgeMemoryLimitKb;
+    /** Единый алгоритм решения для всех вариантов задачи (описание, формула, псевдокод). */
+    private String solutionAlgorithm;
 
     public String getTitle() {
         return title;
@@ -59,5 +61,13 @@ public class CreateTaskRequest {
 
     public void setJudgeMemoryLimitKb(Integer judgeMemoryLimitKb) {
         this.judgeMemoryLimitKb = judgeMemoryLimitKb;
+    }
+
+    public String getSolutionAlgorithm() {
+        return solutionAlgorithm;
+    }
+
+    public void setSolutionAlgorithm(String solutionAlgorithm) {
+        this.solutionAlgorithm = solutionAlgorithm;
     }
 }

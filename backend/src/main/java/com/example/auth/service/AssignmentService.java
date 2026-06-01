@@ -138,6 +138,7 @@ public class AssignmentService {
                             dto.setOutputFormat(task.getOutputFormat());
                             dto.setJudgeTimeLimitMs(task.getJudgeTimeLimitMs());
                             dto.setJudgeMemoryLimitKb(task.getJudgeMemoryLimitKb());
+                            dto.setSolutionAlgorithm(task.getSolutionAlgorithm());
                             dto.setVariants(assignmentVariantRepository.findByTaskIdOrderByIdAsc(task.getId()).stream()
                                     .map(v -> {
                                         VariantSummaryDto s = new VariantSummaryDto();
@@ -166,6 +167,7 @@ public class AssignmentService {
         task.setOutputFormat(trimToNull(request.getOutputFormat()));
         task.setJudgeTimeLimitMs(normalizePositiveInt(request.getJudgeTimeLimitMs(), 100, 120000, null));
         task.setJudgeMemoryLimitKb(normalizePositiveInt(request.getJudgeMemoryLimitKb(), 1024, 8388608, null));
+        task.setSolutionAlgorithm(trimToNull(request.getSolutionAlgorithm()));
         task.setSortOrder(nextOrder);
         task = assignmentTaskRepository.save(task);
         AssignmentVariant v = new AssignmentVariant();
@@ -196,6 +198,9 @@ public class AssignmentService {
         t.setOutputFormat(trimToNull(request.getOutputFormat()));
         t.setJudgeTimeLimitMs(normalizePositiveInt(request.getJudgeTimeLimitMs(), 100, 120000, null));
         t.setJudgeMemoryLimitKb(normalizePositiveInt(request.getJudgeMemoryLimitKb(), 1024, 8388608, null));
+        if (request.getSolutionAlgorithm() != null) {
+            t.setSolutionAlgorithm(trimToNull(request.getSolutionAlgorithm()));
+        }
         assignmentTaskRepository.save(t);
         return true;
     }
@@ -429,14 +434,33 @@ public class AssignmentService {
         int difficulty = request.getDifficulty() != null ? request.getDifficulty() : 3;
         difficulty = Math.min(Math.max(difficulty, 1), 5);
         String style = request.getStyle() != null ? request.getStyle().trim() : "";
-        int memoryLimitKb = 262144;
-        int timeLimitMs = 2000;
+        if (request.getSolutionAlgorithm() != null) {
+            task.setSolutionAlgorithm(trimToNull(request.getSolutionAlgorithm()));
+            assignmentTaskRepository.save(task);
+        }
+        String solutionAlgorithm = task.getSolutionAlgorithm() != null ? task.getSolutionAlgorithm().trim() : "";
+        if (solutionAlgorithm.isBlank()) {
+            throw new IllegalArgumentException("Укажите алгоритм решения задачи перед генерацией вариантов.");
+        }
+        int memoryLimitKb = task.getJudgeMemoryLimitKb() != null ? task.getJudgeMemoryLimitKb() : 262144;
+        int timeLimitMs = task.getJudgeTimeLimitMs() != null ? task.getJudgeTimeLimitMs() : 2000;
         String baseContent = contentForClient(first.getContent());
         int nonOriginalBefore = variants.size() - 1;
         String assignmentName = a.getName() != null ? a.getName() : "";
         String taskTitle = task.getTitle() != null ? task.getTitle() : "";
+        String inputFormat = task.getInputFormat() != null ? task.getInputFormat() : "";
+        String outputFormat = task.getOutputFormat() != null ? task.getOutputFormat() : "";
         List<AiVariantGenerator.GeneratedVariant> generatedTexts =
-                aiVariantGenerator.generateDetailed(assignmentName, taskTitle, baseContent, count, difficulty, style);
+                aiVariantGenerator.generateDetailed(
+                        assignmentName,
+                        taskTitle,
+                        baseContent,
+                        solutionAlgorithm,
+                        inputFormat,
+                        outputFormat,
+                        count,
+                        difficulty,
+                        style);
         List<VariantDetailDto> created = new ArrayList<>();
         taskTestCaseRepository.deactivateActiveByTaskId(task.getId());
         for (int j = 1; j <= generatedTexts.size(); j++) {

@@ -42,6 +42,9 @@ public class AssignmentTask {
     @Column(name = "judge_memory_limit_kb")
     private Integer judgeMemoryLimitKb;
 
+    @Column(name = "solution_algorithm", columnDefinition = "TEXT")
+    private String solutionAlgorithm;
+
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder = 0;
 
@@ -111,6 +114,14 @@ public class AssignmentTask {
 
     public void setJudgeMemoryLimitKb(Integer judgeMemoryLimitKb) {
         this.judgeMemoryLimitKb = judgeMemoryLimitKb;
+    }
+
+    public String getSolutionAlgorithm() {
+        return solutionAlgorithm;
+    }
+
+    public void setSolutionAlgorithm(String solutionAlgorithm) {
+        this.solutionAlgorithm = solutionAlgorithm;
     }
 
     public Integer getSortOrder() {

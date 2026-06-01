@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { TaskDetailDto, VariantDetailDto } from '../../api.types';
 
@@ -68,13 +69,22 @@ interface SessionGeneratedItem {
               />
             </label>
             <label class="task-detail-gen__field">
-              <span class="task-detail-gen__field-label">Стиль</span>
+              <span class="task-detail-gen__field-label">Стиль (необязательно)</span>
               <input
                 type="text"
                 class="task-detail-gen__control"
                 [(ngModel)]="genStyle"
-                placeholder="Например: формальный"
+                placeholder="Пусто — разные сюжеты (рынок, парк…)"
               />
+            </label>
+            <label class="task-detail-gen__field task-detail-gen__field--algorithm">
+              <span class="task-detail-gen__field-label">Алгоритм решения</span>
+              <textarea
+                class="task-detail-gen__control task-detail-gen__control--area"
+                [(ngModel)]="solutionAlgorithm"
+                rows="3"
+                placeholder="Описание, формула или псевдокод — единый для всех вариантов"
+              ></textarea>
             </label>
             <button type="button" class="task-detail-btn task-detail-btn--primary" (click)="runGenerate(false)" [disabled]="working">
               Сгенерировать
@@ -315,6 +325,20 @@ interface SessionGeneratedItem {
       border: 1px solid #94a3b8; border-radius: 0.5em; background: #fff;
     }
     .task-detail-gen__control:focus { outline: 2px solid #a5c8ff; outline-offset: 0; border-color: #7c9ee0; }
+    .task-detail-gen__control--area {
+      min-height: 0;
+      resize: vertical;
+      line-height: 1.4;
+    }
+    .task-detail-gen__field--algorithm {
+      flex: 0 0 auto;
+      margin-bottom: 0.5em;
+    }
+    .task-detail-gen__field--algorithm .task-detail-gen__control--area {
+      min-height: 3.2em;
+      max-height: 5em;
+      padding: 0.55em 0.75em;
+    }
     .task-detail-btn {
       padding: 0.65em 1em; border-radius: 0.55em; border: 0; cursor: pointer; font-size: 1em; font-weight: 500; width: 100%;
       margin-top: 0.35em;
@@ -364,6 +388,7 @@ export class TaskGenerateVariantsComponent implements OnInit {
   genCount = 5;
   genDifficulty = 3;
   genStyle = '';
+  solutionAlgorithm = '';
   loading = true;
   working = false;
   savingOriginal = false;
@@ -425,6 +450,7 @@ export class TaskGenerateVariantsComponent implements OnInit {
     this.auth.getTask(this.topicId, this.taskId).subscribe({
       next: (td) => {
         this.taskDetail = td;
+        this.solutionAlgorithm = td.solutionAlgorithm ?? '';
         const first = td.variants?.[0];
         if (!first) {
           this.loading = false;
@@ -459,15 +485,18 @@ export class TaskGenerateVariantsComponent implements OnInit {
     if (!this.originalVariantId) return;
     this.savingOriginal = true;
     this.error = '';
-    this.auth
-      .updateVariant(this.topicId, this.taskId, this.originalVariantId, {
-        variantName: 'Исходный вариант',
-        content: this.originalContent ?? undefined,
-      })
-      .subscribe({
+    const variant$ = this.auth.updateVariant(this.topicId, this.taskId, this.originalVariantId, {
+      variantName: 'Исходный вариант',
+      content: this.originalContent ?? undefined,
+    });
+    const task$ = this.auth.updateTask(this.topicId, this.taskId, {
+      title: this.taskDetail?.title ?? 'Задача',
+      solutionAlgorithm: (this.solutionAlgorithm ?? '').trim() || null,
+    });
+    forkJoin([variant$, task$]).subscribe({
         next: () => {
           this.savingOriginal = false;
-          this.flashInfo('Исходный вариант сохранён');
+          this.flashInfo('Сохранено');
         },
         error: (err: HttpErrorResponse) => {
           this.savingOriginal = false;
@@ -506,6 +535,11 @@ export class TaskGenerateVariantsComponent implements OnInit {
    */
   runGenerate(replaceExisting: boolean): void {
     if (!this.topicId || !this.taskId) return;
+    const algorithm = (this.solutionAlgorithm ?? '').trim();
+    if (!algorithm) {
+      this.error = 'Укажите алгоритм решения перед генерацией';
+      return;
+    }
     const count = Math.max(1, Math.min(300, Number(this.genCount) || 1));
     const difficulty = Math.max(1, Math.min(5, Number(this.genDifficulty) || 3));
     this.working = true;
@@ -515,6 +549,7 @@ export class TaskGenerateVariantsComponent implements OnInit {
         count,
         difficulty,
         style: this.genStyle?.trim() || undefined,
+        solutionAlgorithm: algorithm,
         replaceExisting,
       })
       .subscribe({
@@ -567,21 +602,24 @@ export class TaskGenerateVariantsComponent implements OnInit {
     }
     this.savingOriginal = true;
     this.error = '';
-    this.auth
-      .updateVariant(this.topicId, this.taskId, this.originalVariantId, {
-        variantName: 'Исходный вариант',
-        content: this.originalContent ?? undefined,
-      })
-      .subscribe({
-        next: () => {
-          this.savingOriginal = false;
-          go();
-        },
-        error: (err: HttpErrorResponse) => {
-          this.savingOriginal = false;
-          if (err?.status === 401) this.router.navigateByUrl('/login');
-          else this.error = 'Не удалось сохранить перед выходом';
-        },
-      });
+    const variant$ = this.auth.updateVariant(this.topicId, this.taskId, this.originalVariantId, {
+      variantName: 'Исходный вариант',
+      content: this.originalContent ?? undefined,
+    });
+    const task$ = this.auth.updateTask(this.topicId, this.taskId, {
+      title: this.taskDetail?.title ?? 'Задача',
+      solutionAlgorithm: (this.solutionAlgorithm ?? '').trim() || null,
+    });
+    forkJoin([variant$, task$]).subscribe({
+      next: () => {
+        this.savingOriginal = false;
+        go();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.savingOriginal = false;
+        if (err?.status === 401) this.router.navigateByUrl('/login');
+        else this.error = 'Не удалось сохранить перед выходом';
+      },
+    });
   }
 }

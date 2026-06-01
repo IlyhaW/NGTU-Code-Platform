@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS edu.assignment_tasks (
   input_format TEXT,
   output_format TEXT,
   judge_time_limit_ms INT,
-  judge_memory_limit_kb INT
+  judge_memory_limit_kb INT,
+  solution_algorithm TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_assignment_tasks_assignment_id

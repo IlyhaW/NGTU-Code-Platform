@@ -136,6 +136,15 @@ import { AssignmentDetailDto, TaskDetailDto, VariantDetailDto } from '../../api.
                   <input type="number" min="1" step="1" class="task-detail-judge__input" [(ngModel)]="judgeMemoryLimitMb" />
                 </label>
               </div>
+              <label class="task-detail-judge__label task-detail-judge__label--algorithm">
+                Алгоритм решения
+                <textarea
+                  class="task-detail-judge__area task-detail-judge__area--algorithm"
+                  [(ngModel)]="solutionAlgorithm"
+                  rows="3"
+                  placeholder="Описание решения, формула или псевдокод — единый для всех вариантов задачи"
+                ></textarea>
+              </label>
             </div>
           </div>
         </section>
@@ -308,6 +317,16 @@ import { AssignmentDetailDto, TaskDetailDto, VariantDetailDto } from '../../api.
       color: #475569;
     }
     .task-detail-judge__label--grow { flex: 1 1 0; min-height: 0; }
+    .task-detail-judge__label--algorithm {
+      flex: 0 0 auto;
+      flex-shrink: 0;
+    }
+    .task-detail-judge__area--algorithm {
+      height: auto;
+      min-height: 3.2em;
+      max-height: 5.5em;
+      resize: vertical;
+    }
     .task-detail-judge__area {
       width: 100%;
       min-height: 0;
@@ -413,6 +432,7 @@ export class TaskDetailComponent implements OnInit {
   displayTags: string[] = [];
   inputFormat = '';
   outputFormat = '';
+  solutionAlgorithm = '';
   judgeTimeLimitSeconds: number | null = null;
   judgeMemoryLimitMb: number | null = null;
   showNewTagInput = false;
@@ -557,6 +577,7 @@ export class TaskDetailComponent implements OnInit {
         this.displayTags = [...(td.tags || [])];
         this.inputFormat = td.inputFormat ?? '';
         this.outputFormat = td.outputFormat ?? '';
+        this.solutionAlgorithm = td.solutionAlgorithm ?? '';
         this.judgeTimeLimitSeconds = td.judgeTimeLimitMs ? Math.max(1, Math.round(td.judgeTimeLimitMs / 1000)) : null;
         this.judgeMemoryLimitMb = td.judgeMemoryLimitKb ? Math.max(1, Math.round(td.judgeMemoryLimitKb / 1024)) : null;
         const list = td.variants ?? [];
@@ -625,6 +646,7 @@ export class TaskDetailComponent implements OnInit {
       tags: this.displayTags,
       inputFormat: this.emptyToNull(this.inputFormat),
       outputFormat: this.emptyToNull(this.outputFormat),
+      solutionAlgorithm: this.emptyToNull(this.solutionAlgorithm),
       judgeTimeLimitMs,
       judgeMemoryLimitKb,
     });
@@ -643,6 +665,7 @@ export class TaskDetailComponent implements OnInit {
         if (this.taskDetail) this.taskDetail.tags = [...this.displayTags];
         if (this.taskDetail) this.taskDetail.inputFormat = this.emptyToNull(this.inputFormat);
         if (this.taskDetail) this.taskDetail.outputFormat = this.emptyToNull(this.outputFormat);
+        if (this.taskDetail) this.taskDetail.solutionAlgorithm = this.emptyToNull(this.solutionAlgorithm);
         if (this.taskDetail) this.taskDetail.judgeTimeLimitMs = judgeTimeLimitMs;
         if (this.taskDetail) this.taskDetail.judgeMemoryLimitKb = judgeMemoryLimitKb;
         this.captureVariantContentBaseline();
